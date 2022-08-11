@@ -8,6 +8,9 @@ selenium = "*"
 pandas = "*"
 webdriver-manager = "*"
 bs4 = "*"
+undetected_chromedriver = "*"
+requests_html = "*"
+tqdm = "*"
 
 [dev-packages]
 
