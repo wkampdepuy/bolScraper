@@ -2,9 +2,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -45,9 +42,10 @@ driver.maximize_window()
 delay_function(driver.get('https://bol.com/'))
 
 # close cookies window
-# delay_function(
-#     driver.find_element(By.XPATH, '//*[@id="modalWindow"]/div[2]/div[2]/wsp-consent-modal/div[2]/button[1]').click())
-# delay_function(driver.find_element(By.CLASS_NAME, 'js_category_menu_button').click())
+if '--headless' not in chrome_options.arguments:
+    delay_function(
+        driver.find_element(By.XPATH, '//*[@id="modalWindow"]/div[2]/div[2]/wsp-consent-modal/div[2]/button[1]').click())
+    delay_function(driver.find_element(By.CLASS_NAME, 'js_category_menu_button').click())
 
 # get categories
 cats = [BeautifulSoup(cat.get_attribute('innerHTML'), 'html.parser').span for cat in
@@ -72,10 +70,12 @@ date = datetime.date.today()
 week = datetime.date.today().isocalendar().week
 
 # get products from subcategories
-products = []
-for subcat in tqdm(subcats_links[:10], desc="Subcategories", position=0):  # remove filter!
+products = pd.DataFrame(
+    columns=['date', 'week', 'timestamp', 'cat1', 'cat2', 'cat3', 'cat4', 'page', 'position', 'id', 'seller', 'brand',
+             'name', 'sponsored', 'link', 'rating', 'reviews', 'delivery', 'price', 'stock'])
 
-    delay_function(driver.get('https://bol.com{}'.format(subcat)))
+for subcat in tqdm(subcats_links[:100], desc="Subcategories", position=0):  # remove filter!
+    driver.get('https://bol.com{}'.format(subcat))
 
     cat1 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1].text if \
         driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li') else "NA"
@@ -86,15 +86,13 @@ for subcat in tqdm(subcats_links[:10], desc="Subcategories", position=0):  # rem
     cat4 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[4].text if \
         len(driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')) > 4 else "NA"
 
-    driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1].text if \
-        driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li') else "NA"
-
     # iterate through pages
     for page in range(1, 2):
         if page != 1:
             try:
-                delay_function(driver.get('https://bol.com{0}?page={1}'.format(subcat, page)))
-            except:
+                driver.get('https://bol.com{0}?page={1}'.format(subcat, page))
+            except Exception:
+                traceback.print_exc()
                 pass
 
         # iterate through products
@@ -142,8 +140,7 @@ for subcat in tqdm(subcats_links[:10], desc="Subcategories", position=0):  # rem
             }
 
             product['price'] = product['price'].replace('\n  ', '.').strip()
-
-            products.append(product)
+            products = pd.concat([products, pd.Series(product).to_frame().T], ignore_index=True)
 
         # remember current tab
         current_window = driver.current_window_handle
@@ -152,16 +149,12 @@ for subcat in tqdm(subcats_links[:10], desc="Subcategories", position=0):  # rem
         links_to_baskets = [product.get_attribute('href') for product in
                             driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]')]
 
-        # links_to_baskets = driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]')
         for product in links_to_baskets:
-            # delay_function(driver.get(product))
             try:
-                # delay_function(product.send_keys(Keys.CONTROL + Keys.RETURN))
-                delay_function(driver.execute_script('window.open(arguments[0]);', product))
+                driver.execute_script('window.open(arguments[0]);', product)
             except Exception:
                 traceback.print_exc()
                 pass
-            # links_to_baskets[1].get_attribute('href')
 
         # close tabs
         for handle in driver.window_handles[::-1]:
@@ -172,127 +165,44 @@ for subcat in tqdm(subcats_links[:10], desc="Subcategories", position=0):  # rem
         # return to original tab
         driver.switch_to.window(current_window)
 
-# turn into dataframe
-df_products = pd.DataFrame(products)
-df_products['id'] = [product[-2] for product in df_products['link'].str.split('/')]
+        # get product stock from order basket
+        driver.get('https://www.bol.com/nl/order/basket.html')
 
-# get product stock from order basket
-driver.get('https://www.bol.com/nl/order/basket.html')
+        # iterate through products and set order quantity to maximum
+        for link in driver.find_elements(By.NAME, 'id'):
+            driver.execute_script('window.open(arguments[0]);',
+                                  'https://www.bol.com/nl/order/basket/updateItemQuantity.html?id={}&quantity=500'.format(
+                                      link.get_attribute('value')))
+            driver.switch_to.window(driver.window_handles[-1])
+            if driver.current_window_handle != current_window:
+                driver.close()
+            driver.switch_to.window(current_window)
 
-# for product in driver.find_elements(By.XPATH, '//div[@class="shopping-cart"]/div'):
+        # reload
+        driver.get('https://www.bol.com/nl/order/basket.html')
 
-# remember current tab
-current_window = driver.current_window_handle
+        # get product stocks
+        product_stock = []
+        for product in driver.find_elements(By.XPATH, '//div[@class="product"]'):
+            soup = BeautifulSoup(product.get_attribute('innerHTML'), 'html.parser')
 
-# iterate through products and set order quantity to maximum
-for link in driver.find_elements(By.NAME, 'id'):
-    driver.execute_script('window.open(arguments[0]);',
-                          'https://www.bol.com/nl/order/basket/updateItemQuantity.html?id={}&quantity=500'.format(
-                              link.get_attribute('value')))
-    driver.switch_to.window(driver.window_handles[-1])
-    if driver.current_window_handle != current_window:
-        driver.close()
-    driver.switch_to.window(current_window)
+            output = {
+                'link': soup.find('a', {'class': 'product-details__title'})['href'] if soup.find('a', {
+                    'class': 'product-details__title'}) else "NA",
+                'stock': soup.find('option', {'selected': 'selected'}).text if soup.find('option',
+                                                                                         {
+                                                                                             'selected': 'selected'}) else 1
+            }
 
-# reload
-driver.get('https://www.bol.com/nl/order/basket.html')
+            products.loc[products['link'] == output['link'], 'stock'] = output['stock']
 
-# get product stocks
-product_stock = []
-for product in driver.find_elements(By.XPATH, '//div[@class="product"]'):
-    soup = BeautifulSoup(product.get_attribute('innerHTML'), 'html.parser')
+        # remove all products from basket
+        for product in driver.find_elements(By.XPATH, '//a[@data-test="remove-link-large"]'):
+            driver.execute_script('window.open(arguments[0]);', product.get_attribute('href'))
+            driver.switch_to.window(driver.window_handles[-1])
+            if driver.current_window_handle != current_window:
+                driver.close()
+            driver.switch_to.window(current_window)
 
-    output = {
-        'link': soup.find('a', {'class': 'product-details__title'})['href'] if soup.find('a', {
-            'class': 'product-details__title'}) else "NA",
-        'stock': soup.find('option', {'selected': 'selected'}).text if soup.find('option',
-                                                                                 {'selected': 'selected'}) else 1
-    }
+products.to_excel('Bol_{}.xlsx'.format(datetime.datetime.today().date()))
 
-    # output['name'] = "".join(line.strip() for line in output['name'].split("\n"))
-
-    product_stock.append(output)
-
-df_products = df_products.merge(pd.DataFrame(product_stock), how='outer', on='link')
-
-# GRAVEYARD ======================================================================================================
-#
-# driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]')[1].click()
-
-# ActionChains(driver).move_to_element(subcats[5]).perform()
-# ActionChains(driver).move_to_element(driver.find_element(By.CLASS_NAME, 'wsp-sub-nav-group__title')).perform()
-
-
-# subcats = driver.find_elements(By.CLASS_NAME, 'wsp-sub-nav-group')
-#
-# subsubcats = [name.text for subcat in subcats for name in
-#               BeautifulSoup(subcat.get_attribute('innerHTML'), 'html.parser').find_all('a')]
-#
-# subsubcats_links = [name['href'] for subcat in subcats for name in
-#                     BeautifulSoup(subcat.get_attribute('innerHTML'), 'html.parser').find_all('a')]
-#
-# driver.get('https://bol.com/{}'.format(subsubcats_links[3]))
-#
-# # [product.click() for product in driver.find_elements(By.CLASS_NAME, 'product-title')]
-
-#
-# current_url = driver.current_url
-#
-#
-# webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-# WebDriverWait(driver, 10).until(EC.element_to_be_clickable(product)).click()
-# # driver.execute_script("arguments[0].click();", product)
-# # product.click()  # add to basket
-#
-# # WebDriverWait(driver, 10).until(lambda driver: driver.current_url != current_url)
-#
-# # close_button = driver.find_element(By.XPATH, '//div[@data-test="modal-window-close"]')
-# WebDriverWait(driver, 10).until(
-#     EC.element_to_be_clickable((By.XPATH, '//div[@data-test="modal-window-close"]')))
-# try:
-#     driver.execute_script("arguments[0].click();",
-#                           driver.find_element(By.XPATH, '//div[@data-test="modal-window-close"]'))
-# except:
-#     pass
-# # WebDriverWait(driver, 10).until(lambda driver: driver.current_url == current_url)
-#
-# while 'modal_open' in str(driver.current_url):
-#     # try:
-#     webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-#
-#     # except None:
-#     #     continue
-#
-#
-# for i in range(len(driver.find_elements(By.NAME, 'quantity'))):
-#     order = driver.find_elements(By.NAME, 'quantity')[i]
-#     if order.get_attribute('data-quantity-option'):
-#         pass
-#     else:
-#         # WebDriverWait(driver, 10).until(EC.element_to_be_clickable(order))
-#
-#         # remember current tab
-#         current_window = driver.current_window_handle
-#
-#         link = 'https://www.bol.com/nl/order/basket/updateItemQuantity.html?id={}&quantity=500'.format(
-#             driver.find_elements(By.NAME, 'id')[i].get_attribute('value'))
-#
-#         driver.execute_script('window.open(arguments[0]);', link)
-#
-#         # close tabs
-#         for handle in driver.window_handles[::-1]:
-#             driver.switch_to.window(handle)
-#             if handle != current_window:
-#                 driver.close()
-#
-#         # return to original tab
-#         driver.switch_to.window(current_window)
-#
-#         #
-#         # if order.find_elements(By.CSS_SELECTOR, 'option')[-1].text.isnumeric():
-#         #     # stock = order.find_elements(By.CSS_SELECTOR, 'option')[-1].text   # faster by getting text instead of clicking
-#         #     order.find_elements(By.CSS_SELECTOR, 'option')[-1].click()
-#         # elif order.find_elements(By.CSS_SELECTOR, 'option')[-1].text == 'meer':
-#         #     order.find_elements(By.CSS_SELECTOR, 'option')[-1].click()
-#         #     driver.find_element(By.XPATH, '//input[@type="tel"]').send_keys('1000')
-#         #     driver.find_element(By.XPATH, '//input[@type="tel"]/following-sibling::div').click()

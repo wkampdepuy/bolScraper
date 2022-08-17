@@ -11,6 +11,7 @@ bs4 = "*"
 undetected_chromedriver = "*"
 requests_html = "*"
 tqdm = "*"
+openpyxl = "*"
 
 [dev-packages]
 
