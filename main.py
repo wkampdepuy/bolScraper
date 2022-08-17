@@ -4,26 +4,50 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import pandas as pd
 import datetime
 import time
 from tqdm import tqdm
+import traceback
 
 crawl_delay = 2
 
+
+# define delay function to avoid rate limit
+def delay_function(ping):
+    start = time.time()
+    ping
+    end = time.time()
+    time.sleep(max(0, crawl_delay - (start - end)))
+
+
 chrome_options = Options()
 chrome_options.add_argument("--headless")
+
+# avoid detection
+chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+chrome_options.add_experimental_option('useAutomationExtension', False)
+
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
-driver.implicitly_wait(20)
+# avoid detection
+driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+    "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.53 Safari/537.36'})
+driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+driver.implicitly_wait(2)
 driver.maximize_window()
 
-driver.get('https://bol.com/')
+delay_function(driver.get('https://bol.com/'))
 
-# driver.find_element(By.XPATH, '//*[@id="modalWindow"]/div[2]/div[2]/wsp-consent-modal/div[2]/button[1]').click()
-# driver.find_element(By.CLASS_NAME, 'js_category_menu_button').click()
+# close cookies window
+# delay_function(
+#     driver.find_element(By.XPATH, '//*[@id="modalWindow"]/div[2]/div[2]/wsp-consent-modal/div[2]/button[1]').click())
+# delay_function(driver.find_element(By.CLASS_NAME, 'js_category_menu_button').click())
 
 # get categories
 cats = [BeautifulSoup(cat.get_attribute('innerHTML'), 'html.parser').span for cat in
@@ -35,12 +59,12 @@ cats_links = [link.get_attribute('href') for link in
 
 # get subcategories from categories
 subcats_links = []
-for category in cats_links[1:]:
+for category in cats_links[2:]:
     driver.get(category)
     subcats = BeautifulSoup(driver.find_element(By.ID, 'mainContent').get_attribute('innerHTML'),
                             'html.parser').findAll('li')
 
-    links = [subcat.a['href'] for subcat in subcats]
+    links = [subcat.a['href'] for subcat in subcats if 'Alle' not in subcat.text]
 
     subcats_links += links
 
@@ -49,15 +73,12 @@ week = datetime.date.today().isocalendar().week
 
 # get products from subcategories
 products = []
-for subcat in tqdm(subcats_links):  # remove filter!
+for subcat in tqdm(subcats_links[:10], desc="Subcategories", position=0):  # remove filter!
 
-    start = time.time()
-    driver.get('https://bol.com{}'.format(subcat))
-    end = time.time()
-    time.sleep(max(0, crawl_delay - (start - end)))
+    delay_function(driver.get('https://bol.com{}'.format(subcat)))
 
     cat1 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1].text if \
-        driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1] else "NA"
+        driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li') else "NA"
     cat2 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[2].text if \
         len(driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')) > 2 else "NA"
     cat3 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[3].text if \
@@ -65,14 +86,14 @@ for subcat in tqdm(subcats_links):  # remove filter!
     cat4 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[4].text if \
         len(driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')) > 4 else "NA"
 
+    driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1].text if \
+        driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li') else "NA"
+
     # iterate through pages
-    for page in tqdm(range(1, 2)):
+    for page in range(1, 2):
         if page != 1:
             try:
-                start = time.time()
-                driver.get('https://bol.com{0}?page={1}'.format(subcat, page))
-                end = time.time()
-                time.sleep(max(0, crawl_delay - (start - end)))
+                delay_function(driver.get('https://bol.com{0}?page={1}'.format(subcat, page)))
             except:
                 pass
 
@@ -127,12 +148,20 @@ for subcat in tqdm(subcats_links):  # remove filter!
         # remember current tab
         current_window = driver.current_window_handle
 
-        # add products to basket (in new tab)
-        for product in tqdm(driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]'), position=0, leave=True):
-            start = time.time()
-            driver.execute_script('window.open(arguments[0]);', product.get_attribute('href'))
-            end = time.time()
-            time.sleep(max(0, crawl_delay - (start - end)))
+        # add products to basket
+        links_to_baskets = [product.get_attribute('href') for product in
+                            driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]')]
+
+        # links_to_baskets = driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]')
+        for product in links_to_baskets:
+            # delay_function(driver.get(product))
+            try:
+                # delay_function(product.send_keys(Keys.CONTROL + Keys.RETURN))
+                delay_function(driver.execute_script('window.open(arguments[0]);', product))
+            except Exception:
+                traceback.print_exc()
+                pass
+            # links_to_baskets[1].get_attribute('href')
 
         # close tabs
         for handle in driver.window_handles[::-1]:
