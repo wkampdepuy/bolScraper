@@ -204,5 +204,5 @@ for subcat in tqdm(subcats_links[:100], desc="Subcategories", position=0):  # re
                 driver.close()
             driver.switch_to.window(current_window)
 
-products.to_excel('Bol_{}.xlsx'.format(datetime.datetime.today().date()))
+products.to_excel('Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 
