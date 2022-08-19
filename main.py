@@ -219,6 +219,7 @@ for subcat in tqdm(subcats_links, desc="Subcategories", position=0):
                 driver.close()
             driver.switch_to.window(current_window)
 
+print("test")
 products.to_excel('Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 
 PATH_OF_GIT_REPO = r'.git'  # make sure .git folder is properly configured
