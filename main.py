@@ -224,7 +224,7 @@ products.to_excel('Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 PATH_OF_GIT_REPO = r'.git'  # make sure .git folder is properly configured
 COMMIT_MESSAGE = 'Update'
 
-full_local_path = "C:/Users/wali.kamp/PycharmProjects/bolScraper/.git/"
+full_local_path = "C:/Users/wali.kamp/PycharmProjects/temp/"
 username = "wkampdepuy"
 password = "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"
 remote = f"https://{username}:{password}@github.com/wkampdepuy/bolScraper.git"
