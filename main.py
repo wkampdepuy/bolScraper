@@ -221,14 +221,14 @@ except Exception:
     print("Error occurred while getting products: {}".format(Exception))
 
 print('Done')
-products.to_excel('Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
+products.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 print('Pushed to Excel')
 
 # push to GitHub
 def git_push():
     try:
         repo = Repo(r'.git')
-        repo.git.add(update=True)
+        repo.git.add(all=True)
         repo.index.commit('Update {}'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))) # commit message
         origin = repo.remote(name='origin')
         origin.push()
