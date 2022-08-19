@@ -22,6 +22,7 @@ def delay_function(ping):
     end = time.time()
     time.sleep(max(0, crawl_delay - (start - end)))
 
+
 print('Initialize driver')
 
 chrome_options = Options()
@@ -80,9 +81,10 @@ products = pd.DataFrame(
              'name', 'sponsored', 'link', 'rating', 'reviews', 'delivery', 'price', 'stock'])
 
 # if existing output exists, then only select subcategories not already in output
-if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
+if (os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())) & len(
+        pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0):
     existing_links = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
-    subcats_links = [link for link in subcats_links if link in existing_links]
+    subcats_links = [link for link in subcats_links if link not in existing_links]
 
 # run through subcategories to get products
 try:
@@ -116,7 +118,8 @@ try:
                     seller = soup.find('span', attrs={'class': 'product-seller__name'}).text
                 elif soup.find('div', attrs={'data-test': 'plazaseller-link'}):
                     seller = soup.find('div',
-                                       attrs={'data-test': 'plazaseller-link'}).text.strip().replace('Verkoop door ', '')
+                                       attrs={'data-test': 'plazaseller-link'}).text.strip().replace('Verkoop door ',
+                                                                                                     '')
                 else:
                     seller = 'NA'
 
@@ -146,13 +149,15 @@ try:
                                           attrs={'data-test': 'rating-stars'})['data-count'] if soup.find('div', attrs={
                         'data-test': 'rating-stars'}).has_attr('data-count') else "NA") if soup.find('div', attrs={
                         'data-test': 'rating-stars'}) else "NA",
-                    'delivery': "".join(soup.find('div', attrs={'data-test': 'delivery-notification'}).findAll(text=True,
-                                                                                                               recursive=False)).strip() if soup.find(
+                    'delivery': "".join(
+                        soup.find('div', attrs={'data-test': 'delivery-notification'}).findAll(text=True,
+                                                                                               recursive=False)).strip() if soup.find(
                         'div', attrs={'data-test': 'delivery-notification'}) else "NA",
                     'price': soup.find('span', attrs={'data-test': 'price'}).text if soup.find('span', attrs={
                         'data-test': 'price'}) else "NA",
-                    'price_original': soup.find('del', attrs={'data-test': 'from-price'}).text if soup.find('del', attrs={
-                        'data-test': 'from-price'}) else "NA"
+                    'price_original': soup.find('del', attrs={'data-test': 'from-price'}).text if soup.find('del',
+                                                                                                            attrs={
+                                                                                                                'data-test': 'from-price'}) else "NA"
                 }
 
                 product['price'] = product['price'].replace('\n  ', '.').strip()
@@ -226,16 +231,18 @@ print('Done')
 products.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 print('Pushed to Excel')
 
+
 # push to GitHub
 def git_push():
     try:
         repo = Repo(r'.git')
         repo.git.add(all=True)
-        repo.index.commit('Update {}'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))) # commit message
+        repo.index.commit('Update {}'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))  # commit message
         origin = repo.remote(name='origin')
         origin.push()
         print('Pushed to GitHub')
     except Exception:
         print(Exception)
+
 
 git_push()
