@@ -82,7 +82,7 @@ products = pd.DataFrame(
 # if existing output exists, then only select subcategories not already in output
 if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
     existing_links = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
-    subcats_links = [link for link in subcats_links if link not in existing_links]
+    subcats_links = [link for link in subcats_links if link in existing_links]
 
 # run through subcategories to get products
 try:
@@ -128,7 +128,7 @@ try:
                     'cat2': cat2,
                     'cat3': cat3,
                     'cat4': cat4 if cat4 else "NA",
-                    'cat_link': 'https://bol.com{}'.format(subcat),
+                    'cat_link': subcat,
                     'page': page,
                     'position': i,
                     'id': product.get_attribute('data-id'),
