@@ -230,7 +230,7 @@ print('Pushed to Excel')
 def git_push():
     try:
         repo = Repo(r'.git')
-        repo.git.add(update=True)
+        repo.git.add(all=True)
         repo.index.commit('Update {}'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))) # commit message
         origin = repo.remote(name='origin')
         origin.push()
