@@ -23,7 +23,19 @@ def delay_function(ping):
     time.sleep(max(0, crawl_delay - (start - end)))
 
 
-print('Initialize driver')
+def git_push():
+    try:
+        repo = Repo(r'.git')
+        repo.git.add(all=True)
+        repo.index.commit('Update {}'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))  # commit message
+        origin = repo.remote(name='origin')
+        origin.push()
+        print('Pushed to GitHub')
+    except Exception:
+        print(Exception)
+
+
+print('Initializing driver...')
 
 chrome_options = Options()
 chrome_options.add_argument("--headless")
@@ -43,7 +55,7 @@ driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () =>
 driver.implicitly_wait(2)
 driver.maximize_window()
 
-print('Open bol.com')
+print('Opening bol.com...')
 delay_function(driver.get('https://bol.com/'))
 
 # close cookies window
@@ -224,25 +236,20 @@ try:
                 if driver.current_window_handle != current_window:
                     driver.close()
                 driver.switch_to.window(current_window)
+
+    print('Scraping completed')
 except Exception:
     print("Error occurred while getting products: {}".format(Exception))
 
-print('Done')
-products.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
-print('Pushed to Excel')
 
 
-# push to GitHub
-def git_push():
-    try:
-        repo = Repo(r'.git')
-        repo.git.add(all=True)
-        repo.index.commit('Update {}'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))  # commit message
-        origin = repo.remote(name='origin')
-        origin.push()
-        print('Pushed to GitHub')
-    except Exception:
-        print(Exception)
-
-
-git_push()
+if (os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())) & len(
+        pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) < len(products)):
+    current_excel = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))
+    pd.concat([current_excel, products], ignore_index=True)
+    pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))
+    products.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
+    print('Pushed to Excel')
+    git_push()  # push to Github
+else:
+    print('Not pushed to Excel or Github')
