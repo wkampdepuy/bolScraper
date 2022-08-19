@@ -224,8 +224,7 @@ products.to_excel('Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 
 PATH_OF_GIT_REPO = r'.git'  # make sure .git folder is properly configured
 COMMIT_MESSAGE = 'Update'
-os.getenv("GitHub token")
-remote = f"https://wkampdepuy:{password}@github.com/some-account/some-repo.git"
+remote = f"https://wkampdepuy:{os.getenv('GitHub token')}@github.com/some-account/some-repo.git"
 
 def git_push():
     try:
