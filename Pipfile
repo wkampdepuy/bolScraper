@@ -12,6 +12,7 @@ undetected_chromedriver = "*"
 requests_html = "*"
 tqdm = "*"
 openpyxl = "*"
+gitpython = "*"
 
 [dev-packages]
 

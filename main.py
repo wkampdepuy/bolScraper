@@ -9,6 +9,8 @@ import datetime
 import time
 from tqdm import tqdm
 import traceback
+import os.path
+from git import Repo
 
 crawl_delay = 2
 
@@ -44,7 +46,8 @@ delay_function(driver.get('https://bol.com/'))
 # close cookies window
 if '--headless' not in chrome_options.arguments:
     delay_function(
-        driver.find_element(By.XPATH, '//*[@id="modalWindow"]/div[2]/div[2]/wsp-consent-modal/div[2]/button[1]').click())
+        driver.find_element(By.XPATH,
+                            '//*[@id="modalWindow"]/div[2]/div[2]/wsp-consent-modal/div[2]/button[1]').click())
     delay_function(driver.find_element(By.CLASS_NAME, 'js_category_menu_button').click())
 
 # get categories
@@ -62,7 +65,7 @@ for category in cats_links[2:]:
     subcats = BeautifulSoup(driver.find_element(By.ID, 'mainContent').get_attribute('innerHTML'),
                             'html.parser').findAll('li')
 
-    links = [subcat.a['href'] for subcat in subcats if 'Alle' not in subcat.text]
+    links = ['https://bol.com{}'.format(subcat.a['href']) for subcat in subcats if 'Alle' not in subcat.text]
 
     subcats_links += links
 
@@ -74,7 +77,13 @@ products = pd.DataFrame(
     columns=['date', 'week', 'timestamp', 'cat1', 'cat2', 'cat3', 'cat4', 'page', 'position', 'id', 'seller', 'brand',
              'name', 'sponsored', 'link', 'rating', 'reviews', 'delivery', 'price', 'stock'])
 
-for subcat in tqdm(subcats_links[:100], desc="Subcategories", position=0):  # remove filter!
+# if existing output exists, then only select subcategories not already in output
+if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
+    existing_links = pd.read_excel(r"Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
+    subcats_links = [link for link in subcats_links if link not in existing_links]
+
+# run through subcategories to get products
+for subcat in tqdm(subcats_links, desc="Subcategories", position=0):
     driver.get('https://bol.com{}'.format(subcat))
 
     cat1 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1].text if \
@@ -108,6 +117,8 @@ for subcat in tqdm(subcats_links[:100], desc="Subcategories", position=0):  # re
             else:
                 seller = 'NA'
 
+            soup.findAll('div')
+
             product = {
                 'date': date,
                 'week': week,
@@ -116,6 +127,7 @@ for subcat in tqdm(subcats_links[:100], desc="Subcategories", position=0):  # re
                 'cat2': cat2,
                 'cat3': cat3,
                 'cat4': cat4 if cat4 else "NA",
+                'cat_link': 'https://bol.com{}'.format(subcat),
                 'page': page,
                 'position': i,
                 'id': product.get_attribute('data-id'),
@@ -128,15 +140,18 @@ for subcat in tqdm(subcats_links[:100], desc="Subcategories", position=0):  # re
                 'link': soup.find('a', attrs={'data-test': 'product-title'})['href'] if soup.find('a', attrs={
                     'data-test': 'product-title'}).has_attr('href') else "NA",
                 'rating': soup.find('div', attrs={'data-test': 'rating-stars'})['title'].split(' ')[1] if soup.find(
-                    'div', attrs={'data-test': 'rating-stars'}).has_attr('title') else "NA",
-                'reviews': soup.find('div',
-                                     attrs={'data-test': 'rating-stars'})['data-count'] if soup.find('div', attrs={
-                    'data-test': 'rating-stars'}).has_attr('data-count') else "NA",
+                    'div', attrs={'data-test': 'rating-stars'}) else "NA",
+                'reviews': (soup.find('div',
+                                      attrs={'data-test': 'rating-stars'})['data-count'] if soup.find('div', attrs={
+                    'data-test': 'rating-stars'}).has_attr('data-count') else "NA") if soup.find('div', attrs={
+                    'data-test': 'rating-stars'}) else "NA",
                 'delivery': "".join(soup.find('div', attrs={'data-test': 'delivery-notification'}).findAll(text=True,
                                                                                                            recursive=False)).strip() if soup.find(
                     'div', attrs={'data-test': 'delivery-notification'}) else "NA",
                 'price': soup.find('span', attrs={'data-test': 'price'}).text if soup.find('span', attrs={
-                    'data-test': 'price'}) else "NA"
+                    'data-test': 'price'}) else "NA",
+                'price_original': soup.find('del', attrs={'data-test': 'from-price'}).text if soup.find('del', attrs={
+                    'data-test': 'from-price'}) else "NA"
             }
 
             product['price'] = product['price'].replace('\n  ', '.').strip()
@@ -206,3 +221,17 @@ for subcat in tqdm(subcats_links[:100], desc="Subcategories", position=0):  # re
 
 products.to_excel('Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 
+PATH_OF_GIT_REPO = r'.git'  # make sure .git folder is properly configured
+COMMIT_MESSAGE = 'comment from python script'
+
+def git_push():
+    try:
+        repo = Repo(PATH_OF_GIT_REPO)
+        repo.git.add(update=True)
+        repo.index.commit(COMMIT_MESSAGE)
+        origin = repo.remote(name='origin')
+        origin.push()
+    except:
+        print('Some error occured while pushing the code')
+
+git_push()
