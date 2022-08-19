@@ -226,13 +226,16 @@ PATH_OF_GIT_REPO = r'.git'  # make sure .git folder is properly configured
 COMMIT_MESSAGE = 'Update'
 remote = f"https://wkampdepuy:{os.getenv('GitHub token')}@github.com/some-account/some-repo.git"
 
+print(datetime.strtime.today())
+datetime
 def git_push():
     try:
-        repo = Repo(PATH_OF_GIT_REPO)
+        repo = Repo(r'.git')
         repo.git.add(update=True)
-        repo.index.commit(COMMIT_MESSAGE)
+        repo.index.commit('Update {}') # commit message
         origin = repo.remote(name='origin')
         origin.push()
+        print('Pushed')
     except:
         print('Some error occured while pushing the code')
 
