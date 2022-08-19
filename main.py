@@ -41,7 +41,7 @@ driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () =>
 driver.implicitly_wait(2)
 driver.maximize_window()
 
-delay_function(driver.get('https://bol.com/'))
+driver.get('https://bol.com/')
 
 # close cookies window
 if '--headless' not in chrome_options.arguments:
