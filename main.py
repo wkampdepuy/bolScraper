@@ -241,14 +241,10 @@ try:
 except Exception:
     print("Error occurred while getting products: {}".format(Exception))
 
-
-
-if (os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())) & len(
-        pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) < len(products)):
+if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
     current_excel = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))
-    pd.concat([current_excel, products], ignore_index=True)
-    pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))
-    products.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
+    new_excel = pd.concat([current_excel.iloc[:, 1:], products], ignore_index=True)
+    new_excel.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
     print('Pushed to Excel')
     git_push()  # push to Github
 else:
