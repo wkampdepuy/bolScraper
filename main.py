@@ -22,6 +22,7 @@ def delay_function(ping):
     end = time.time()
     time.sleep(max(0, crawl_delay - (start - end)))
 
+print('Initialize driver')
 
 chrome_options = Options()
 chrome_options.add_argument("--headless")
@@ -41,7 +42,8 @@ driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () =>
 driver.implicitly_wait(2)
 driver.maximize_window()
 
-driver.get('https://bol.com/')
+print('Open bol.com')
+delay_function(driver.get('https://bol.com/'))
 
 # close cookies window
 if '--headless' not in chrome_options.arguments:
@@ -60,7 +62,7 @@ cats_links = [link.get_attribute('href') for link in
 
 # get subcategories from categories
 subcats_links = []
-for category in cats_links[2:]:
+for category in tqdm(cats_links[2:], desc='Get subcategories'):
     driver.get(category)
     subcats = BeautifulSoup(driver.find_element(By.ID, 'mainContent').get_attribute('innerHTML'),
                             'html.parser').findAll('li')
@@ -79,12 +81,12 @@ products = pd.DataFrame(
 
 # if existing output exists, then only select subcategories not already in output
 if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
-    existing_links = pd.read_excel(r"Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
+    existing_links = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
     subcats_links = [link for link in subcats_links if link not in existing_links]
 
 # run through subcategories to get products
 try:
-    for subcat in tqdm(subcats_links, desc="Subcategories", position=0):
+    for subcat in tqdm(subcats_links, desc="Get products", position=0):
         driver.get(subcat)
 
         cat1 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1].text if \
@@ -221,7 +223,7 @@ except Exception:
     print("Error occurred while getting products: {}".format(Exception))
 
 print('Done')
-products.to_excel('Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
+products.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
 print('Pushed to Excel')
 
 # push to GitHub
