@@ -32,7 +32,7 @@ def git_push():
         origin.push()
         print('Pushed to GitHub')
     except Exception:
-        print(Exception)
+        traceback.print_exc()
 
 
 print('Initializing driver...')
@@ -93,10 +93,10 @@ products = pd.DataFrame(
              'name', 'sponsored', 'link', 'rating', 'reviews', 'delivery', 'price', 'stock'])
 
 # if existing output exists, then only select subcategories not already in output
-if (os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())) & len(
-        pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0):
-    existing_links = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
-    subcats_links = [link for link in subcats_links if link not in existing_links]
+if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
+    if (pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0:
+        existing_links = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
+        subcats_links = [link for link in subcats_links if link not in existing_links]
 
 # run through subcategories to get products
 try:
@@ -237,15 +237,17 @@ try:
                     driver.close()
                 driver.switch_to.window(current_window)
 
-    print('Scraping completed')
+    print('{}: Scraping completed'.format(datetime.datetime.now()))
 except Exception:
-    print("Error occurred while getting products: {}".format(Exception))
+    print("{}: Error occurred while getting products".format(datetime.datetime.now()))
+    traceback.print_exc()
 
 if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
     current_excel = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))
     new_excel = pd.concat([current_excel.iloc[:, 1:], products], ignore_index=True)
     new_excel.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
-    print('Pushed to Excel')
-    git_push()  # push to Github
 else:
-    print('Not pushed to Excel or Github')
+    products.to_excel('Output/Bol.com_{}.xlsx'.format(datetime.datetime.today().date()))
+
+print('Pushed to Excel')
+git_push()  # push to Github
