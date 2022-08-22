@@ -75,7 +75,7 @@ cats_links = [link.get_attribute('href') for link in
 
 # get subcategories from categories
 subcats_links = []
-for category in tqdm(cats_links[2:], desc='Get subcategories'):
+for category in tqdm(cats_links, desc='Get subcategories'):
     driver.get(category)
     subcats = BeautifulSoup(driver.find_element(By.ID, 'mainContent').get_attribute('innerHTML'),
                             'html.parser').findAll('li')
@@ -94,9 +94,13 @@ products = pd.DataFrame(
 
 # if existing output exists, then only select subcategories not already in output
 if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
-    if (pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0:
-        existing_links = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
+    if len(pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0:
+        existing_links = pd.read_excel(
+            r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
         subcats_links = [link for link in subcats_links if link not in existing_links]
+
+start_time = datetime.datetime.now()
+print('{}: Start scraping'.format(start_time))
 
 # run through subcategories to get products
 try:
@@ -237,7 +241,8 @@ try:
                     driver.close()
                 driver.switch_to.window(current_window)
 
-    print('{}: Scraping completed'.format(datetime.datetime.now()))
+    print('{0}: Scraping completed. \nTotal time: {1}'.format(datetime.datetime.now(),
+                                                            datetime.datetime.now() - start_time))
 except Exception:
     print("{}: Error occurred while getting products".format(datetime.datetime.now()))
     traceback.print_exc()
