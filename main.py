@@ -11,6 +11,7 @@ from tqdm import tqdm
 import traceback
 import os.path
 from git import Repo
+import re
 
 crawl_delay = 2
 
@@ -183,15 +184,34 @@ try:
             current_window = driver.current_window_handle
 
             # add products to basket
-            links_to_baskets = [product.get_attribute('href') for product in
-                                driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]')]
+            # links_to_baskets = [product.get_attribute('href') for product in
+            #                     driver.find_elements(By.XPATH, '//a[@data-test="add-to-basket"]')]
 
-            for product in links_to_baskets:
-                try:
-                    driver.execute_script('window.open(arguments[0]);', product)
-                except Exception:
-                    traceback.print_exc()
-                    pass
+            # work in progress --------------------------------------------------------------------
+            # links_to_baskets = []
+            for product in driver.find_elements(By.XPATH, '//ul[@data-test="products"]/li'):
+                soup = BeautifulSoup(product.get_attribute('innerHTML'), 'html.parser')
+                if soup.find('a', {'data-test': 'add-to-basket'}):
+                    link = soup.find('a', {'data-test': 'add-to-basket'})['href']
+
+                    try:
+                        driver.execute_script('window.open(arguments[0]);', link)
+                    except Exception:
+                        print('Error adding to basket: {}'.format(link))
+                        traceback.print_exc()
+
+                elif soup.find('a', {'class': 'product-seller__link'}):
+                    strings = re.split(r'\?|\&', soup.find('a', {'class': 'product-seller__link'})['data-js-href'])
+                    offerId = "".join(re.findall(r"\d+", *[string for string in strings if 'offerId' in string]))
+                    productId = "".join(re.findall(r"\d+", *[string for string in strings if 'productId' in string]))
+                    link = '/nl/order/basket/addItems.html?productId={0}&offerId={1}&quantity=1'.format(productId, offerId)
+
+                    try:
+                        driver.execute_script('window.open(arguments[0]);', link)
+                    except Exception:
+                        print('Error adding to basket: {}'.format(link))
+                        traceback.print_exc()
+
 
             # close tabs
             for handle in driver.window_handles[::-1]:
@@ -242,7 +262,7 @@ try:
                 driver.switch_to.window(current_window)
 
     print('{0}: Scraping completed. \nTotal time: {1}'.format(datetime.datetime.now(),
-                                                            datetime.datetime.now() - start_time))
+                                                              datetime.datetime.now() - start_time))
 except Exception:
     print("{}: Error occurred while getting products".format(datetime.datetime.now()))
     traceback.print_exc()
