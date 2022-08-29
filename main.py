@@ -85,6 +85,8 @@ for category in tqdm(cats_links, desc='Get subcategories'):
 
     subcats_links += links
 
+subcats_links = list(set(subcats_links))
+
 date = datetime.date.today()
 week = datetime.date.today().isocalendar().week
 
@@ -94,11 +96,20 @@ products = pd.DataFrame(
              'name', 'sponsored', 'link', 'rating', 'reviews', 'delivery', 'price', 'stock'])
 
 # if existing output exists, then only select subcategories not already in output
-if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
-    if len(pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0:
-        existing_links = pd.read_excel(
-            r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())).cat_link.unique()
-        subcats_links = [link for link in subcats_links if link not in existing_links]
+# if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
+#     if len(pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0:
+#         df_existing = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))
+#         existing_links = list(df_existing.cat_link.unique())
+#         subcats_links = [link for link in subcats_links if link not in existing_links]
+#
+#
+# pd.Series(subcats_links).to_excel('subcategories.xlsx')
+# driver.get(subcats_links[-1])
+#
+# len(set(subcats_links))
+#
+#         missing_stock = df_existing[df_existing.stock.isna()].cat_link.unique() # check for products with missing stock
+#         subcats_links = list(set([*subcats_links,*missing_stock])) # add cat links where stock is missing
 
 start_time = datetime.datetime.now()
 print('{}: Start scraping'.format(start_time))
@@ -193,7 +204,6 @@ try:
                 soup = BeautifulSoup(product.get_attribute('innerHTML'), 'html.parser')
                 if soup.find('a', {'data-test': 'add-to-basket'}):
                     link = soup.find('a', {'data-test': 'add-to-basket'})['href']
-
                     try:
                         driver.execute_script('window.open(arguments[0]);', link)
                     except Exception:
@@ -204,14 +214,13 @@ try:
                     strings = re.split(r'\?|\&', soup.find('a', {'class': 'product-seller__link'})['data-js-href'])
                     offerId = "".join(re.findall(r"\d+", *[string for string in strings if 'offerId' in string]))
                     productId = "".join(re.findall(r"\d+", *[string for string in strings if 'productId' in string]))
-                    link = '/nl/order/basket/addItems.html?productId={0}&offerId={1}&quantity=1'.format(productId, offerId)
-
+                    link = '/nl/order/basket/addItems.html?productId={0}&offerId={1}&quantity=1'.format(productId,
+                                                                                                        offerId)
                     try:
                         driver.execute_script('window.open(arguments[0]);', link)
                     except Exception:
                         print('Error adding to basket: {}'.format(link))
                         traceback.print_exc()
-
 
             # close tabs
             for handle in driver.window_handles[::-1]:
@@ -261,12 +270,21 @@ try:
                     driver.close()
                 driver.switch_to.window(current_window)
 
+        completed = [subcat for subcat in subcats_links[:subcats_links.index(subcat) + 1] if
+                     subcat in products.cat_link.unique()]
+        skipped = [subcat for subcat in subcats_links[:subcats_links.index(subcat) + 1] if
+                   subcat not in products.cat_link.unique()]
+        print('Iteration #{0}: Completed {1} subcategories. Skipped: {2}'.format(subcats_links.index(subcat) + 1,
+                                                                                 len(completed),
+                                                                                 skipped))
+
     print('{0}: Scraping completed. \nTotal time: {1}'.format(datetime.datetime.now(),
                                                               datetime.datetime.now() - start_time))
 except Exception:
     print("{}: Error occurred while getting products".format(datetime.datetime.now()))
     traceback.print_exc()
 
+# output to excel
 if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
     current_excel = pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))
     new_excel = pd.concat([current_excel.iloc[:, 1:], products], ignore_index=True)
