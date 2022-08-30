@@ -92,9 +92,11 @@ week = datetime.date.today().isocalendar().week
 
 # get products from subcategories
 products = pd.DataFrame(
-    columns=['date', 'week', 'timestamp', 'cat1', 'cat2', 'cat3', 'cat4', 'page', 'position', 'id', 'seller', 'brand',
+    columns=['date', 'week', 'timestamp', 'cat1', 'cat2', 'cat3', 'cat4', 'cat_link', 'page', 'position', 'id',
+             'seller', 'brand',
              'name', 'sponsored', 'link', 'rating', 'reviews', 'delivery', 'price', 'stock'])
 
+cats_df = pd.DataFrame()
 # if existing output exists, then only select subcategories not already in output
 # if os.path.exists(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date())):
 #     if len(pd.read_excel(r"Output/Bol.com_{}.xlsx".format(datetime.datetime.today().date()))) > 0:
@@ -117,6 +119,8 @@ print('{}: Start scraping'.format(start_time))
 # run through subcategories to get products
 try:
     for subcat in tqdm(subcats_links, desc="Get products", position=0):
+        cats_df = pd.concat([cats_df, pd.Series({datetime.datetime.now(): subcat})])
+        print(subcat)
         driver.get(subcat)
 
         cat1 = driver.find_elements(By.XPATH, '//ul[@data-test="breadcrumb"]/li')[1].text if \
@@ -274,9 +278,7 @@ try:
                      subcat in products.cat_link.unique()]
         skipped = [subcat for subcat in subcats_links[:subcats_links.index(subcat) + 1] if
                    subcat not in products.cat_link.unique()]
-        print('Iteration #{0}: Completed {1} subcategories. Skipped: {2}'.format(subcats_links.index(subcat) + 1,
-                                                                                 len(completed),
-                                                                                 skipped))
+        print('Completed: {1}. Skipped: {2}.'.format(len(completed), len(skipped)))
 
     print('{0}: Scraping completed. \nTotal time: {1}'.format(datetime.datetime.now(),
                                                               datetime.datetime.now() - start_time))
